@@ -3,6 +3,7 @@ import cmd
 import subprocess
 import tempfile
 import xmlrpclib
+import shlex
 
 from trac import Trac
 
@@ -17,15 +18,16 @@ class TracShell(cmd.Cmd):
         http://trac-hacks.org/wiki/XmlRpcPlugin#DownloadandSource
     """
 
-    def __init__(self, username, password, host, port=80, rpc_path='/login/xmlrpc'):
-        """
-        Initialize the XML-RPC interface to a Trac instance
-        
+    def __init__(self, username, password, host, port=80,
+                 secure=False, rpc_path='/login/xmlrpc'):
+        """ Initialize the XML-RPC interface to a Trac instance.
+
         Arguments:
         - `username`: the user to authenticate as
         - `password`: a valid password
         - `host`: the host name serving the Trac instance
         - `port`: defaults to 80
+        - `secure`: whether https (SSL) is used
         - `rpc_path`: the path to the XML-RPC interface of the Trac interface
         """
         self._username = username
@@ -33,11 +35,13 @@ class TracShell(cmd.Cmd):
         self._host = host
         self._port = port
         self._rpc_path = rpc_path
+        self._secure = secure
         self._editor = self._find_editor()
         self.trac = Trac(self._username,
                          self._password,
                          self._host,
                          self._port,
+                         self._secure,
                          self._rpc_path)
 
         # set up shell options
@@ -65,6 +69,10 @@ class TracShell(cmd.Cmd):
         Arguments:
         - `query`: A Trac query string (see `help queries` for more info)
         """
+        if not(query.strip()):
+            print "No query specified."
+            return
+
         tickets = self.trac.query_tickets(query)
         if tickets:
             for ticket in tickets:
@@ -75,6 +83,8 @@ class TracShell(cmd.Cmd):
         else:
             print "Query returned no results"
 
+    do_q = do_query
+
     def do_view(self, ticket_id):
         """
         View a specific ticket in trac
@@ -82,7 +92,12 @@ class TracShell(cmd.Cmd):
         Arguments:
         - `ticket_id`: An integer id of the ticket to view
         """
-        ticket = self.trac.get_ticket(int(ticket_id))
+        try:
+            ticket = self.trac.get_ticket(int(ticket_id))
+        except ValueError:
+            print "Invalid ticket nr specified."
+            return
+
         if ticket:
             (id, created, modified, data) = ticket
             data['created'] = created
@@ -94,6 +109,8 @@ class TracShell(cmd.Cmd):
         else:
             print "Ticket %s not found" % ticket_id
 
+    do_v = do_view
+
     def do_changelog(self, ticket_id):
         """
         View the changes to a ticket
@@ -101,7 +118,12 @@ class TracShell(cmd.Cmd):
         Arguments:
         - `ticket_id`: An integer id of the ticket to view
         """
-        changes = self.trac.get_ticket_changelog(int(ticket_id))
+        try:
+            changes = self.trac.get_ticket_changelog(int(ticket_id))
+        except ValueError:
+            print "Invalid ticket id specified."
+            return
+
         print "Changelog for Ticket %s:\n" % ticket_id
         if changes:
             for change in changes:
@@ -110,7 +132,9 @@ class TracShell(cmd.Cmd):
                 print "Changed '%s' from '%s' to '%s'\n" % (field,
                                                             old,
                                                             new)
-        
+
+    do_log = do_changelog
+
     def do_create(self, param_str):
         """
         Create and submit a new ticket to Trac instance
@@ -139,7 +163,7 @@ class TracShell(cmd.Cmd):
                               "keywords=\n"]
             fh.writelines(template_lines)
             fh.close()
-            subprocess.call([self._editor, fname])
+            subprocess.call(self._editor.split() + [fname])
             try:
                 data = self.parse_ticket_file(open(fname))
             except ValueError:
@@ -163,6 +187,8 @@ class TracShell(cmd.Cmd):
             print "Try `help create` for more info"
             pass
 
+    do_c = do_create
+
     def do_edit(self, ticket_id):
         """
         Edit a ticket in Trac
@@ -176,7 +202,12 @@ class TracShell(cmd.Cmd):
         - `ticket_id`: the id of the ticket to edit
         """
 
-        ticket = self.trac.get_ticket(int(ticket_id))
+        try:
+            ticket = self.trac.get_ticket(int(ticket_id))
+        except ValueError:
+            print "Invalid ticket id specified."
+            return
+
         if ticket:
             (id, created, modified, orig_data) = ticket
             orig_data['comment'] = "Your comment here"
@@ -206,6 +237,8 @@ class TracShell(cmd.Cmd):
         else:
             print "Ticket %s not found"
 
+    do_e = do_edit
+
     # option setter funcs
     # see `do_set`
 
@@ -213,11 +246,11 @@ class TracShell(cmd.Cmd):
         """
         Set the path to the editor to invoke for manipulating
         tickets, comments, etc.
-        
+
         Arguments:
         - `editor`: the path to an editor
         """
-        if os.path.exists(editor):
+        if os.path.exists(editor.split(' ')[0]):
             self._editor = editor
         else:
             raise ValueError, "Not a valid path to an editor"
@@ -239,7 +272,7 @@ class TracShell(cmd.Cmd):
         """
         try:
             data = self.parse_query_str(query_str)
-        except ValueError:
+        except ValueError, e:
             print "Warning: Invalid query string for `set`"
             print "Try fixing %s" % query_str
             print "See `help queries` for more information."
@@ -253,16 +286,14 @@ class TracShell(cmd.Cmd):
                     print e
                     pass
         
-    def parse_query_str(self, string):
+    def parse_query_str(self, q):
         """
         Parse a query string
-        
+
         Arguments:
-        - `string`: A string in the form of field=val
-                    and seperated by &.
+        - `string`: A string in the form of field1=val field2="long val"
         """
-        pairs = string.split('&')
-        data = dict([item.split('=') for item in pairs])
+        data = dict([item.split('=') for item in shlex.split(q)])
         return data
 
     def parse_ticket_file(self, fh):
@@ -287,6 +318,8 @@ class TracShell(cmd.Cmd):
         print "Goodbye!"
         sys.exit()
 
+    do_Q = do_quit
+
     # misc help functions
 
     def help_queries(self):
@@ -295,15 +328,12 @@ class TracShell(cmd.Cmd):
 
            field=value
 
-        Multiple queries can be stringed together
-        by an ampersand:
+        Multiple queries can be stringed together:
 
-           field1=value1&field2=value2
+           field1=value1 field2="long value2"
 
-        Don't be afraid of spaces in the values. Everything
-        is handled and interpreted correctly. Just make sure
-        that there's one '=' between field and value and one
-        '&' between field/value pairs.
+        Values with spaces should be quoted.
+
         """
         print text
 
