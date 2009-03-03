@@ -365,3 +365,12 @@ class TracShell(cmd.Cmd):
         inside the TracShell.
         """
         print text
+
+    def help_shortcuts(self):
+        text = """
+        TracShell does have shortcuts for those inclined to
+        save a few keystrokes. They are as follows:
+        """
+        print text
+        for k, v in self.shortcuts.iteritems():
+            print "%15s: %s" % (k, v)
