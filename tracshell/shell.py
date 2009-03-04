@@ -9,22 +9,12 @@ from trac import Trac
 
 VERSION = 0.1
 
-class trac_method(object):
-
-    def __init__(self, name):
-        self.trac_method = name
-
-    def __call__(self, fn):
-        def wrapped(*args):
-            fn(*args)
-        return wrapped
-
 class Shell(object):
     """
     Shell is a constructor class for building TracShell instances.
 
     It queries the Trac server for the methods available to the user
-    and creates a TracShell instance with only those methods.
+    and creates a TracShell instance with only matching methods.
 
     >> from tracshell.shell import Shell
     >> trac = Shell('me', 'mypass', 'http://trac.myserver.org')
@@ -57,26 +47,16 @@ class Shell(object):
                           self._secure,
                           self._rpc_path)
         shell = TracShell
-        server_methods = self._get_server_methods()
+        server_methods = self._trac._server.system.listMethods()
         shell_methods = [getattr(shell, method)
                          for method in dir(shell)
                          if method.startswith('do_')]
         shell_methods = filter(lambda x: hasattr(x, 'trac_method'),
                                shell_methods)
         for method in shell_methods:
-            if method.trac_method not in server_methods.keys():
+            if method.trac_method not in server_methods:
                 delattr(shell, method.__name__)
         self.shell = shell(self._trac)
-
-    def _get_server_methods(self):
-        multicall = xmlrpclib.MultiCall(self._trac._server)
-        remote_methods = self._trac._server.system.listMethods()
-
-        for method in remote_methods:
-            multicall.system.methodHelp(method)
-        doc_strings = ['\n'.join(help.splitlines()) for help in multicall()]
-
-        return dict(zip(remote_methods, doc_strings))
 
     def run(self):
         self.shell.cmdloop()
