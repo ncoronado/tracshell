@@ -34,14 +34,14 @@ def run():
         else:
             opts.port = 80
 
-    tracshell = shell.TracShell(opts.user,
-                                opts.passwd,
-                                opts.host,
-                                port=opts.port,
-                                secure=opts.secure,
-                                rpc_path=opts.rpc_path)
+    tracshell = shell.Shell(opts.user,
+                            opts.passwd,
+                            opts.host,
+                            port=opts.port,
+                            secure=opts.secure,
+                            rpc_path=opts.rpc_path)
 
-    tracshell.cmdloop()
+    tracshell.run()
 
 if __name__ == '__main__':
     run()

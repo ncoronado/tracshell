@@ -9,18 +9,32 @@ from trac import Trac
 
 VERSION = 0.1
 
-class TracShell(cmd.Cmd):
-    """
-    TracShell is a shell interface to a Trac instance.
-    
-    It uses and XML-RPC interface to Trac provided by:
+class trac_method(object):
 
-        http://trac-hacks.org/wiki/XmlRpcPlugin#DownloadandSource
+    def __init__(self, name):
+        self.trac_method = name
+
+    def __call__(self, fn):
+        def wrapped(*args):
+            fn(*args)
+        return wrapped
+
+class Shell(object):
+    """
+    Shell is a constructor class for building TracShell instances.
+
+    It queries the Trac server for the methods available to the user
+    and creates a TracShell instance with only those methods.
+
+    >> from tracshell.shell import Shell
+    >> trac = Shell('me', 'mypass', 'http://trac.myserver.org')
+    >> trac.run()
     """
 
     def __init__(self, username, password, host, port=80,
                  secure=False, rpc_path='/login/xmlrpc'):
-        """ Initialize the XML-RPC interface to a Trac instance.
+        """
+        Initialize the Trac interface and build the TracShell instance
 
         Arguments:
         - `username`: the user to authenticate as
@@ -36,34 +50,71 @@ class TracShell(cmd.Cmd):
         self._port = port
         self._rpc_path = rpc_path
         self._secure = secure
+        self._trac = Trac(self._username,
+                          self._password,
+                          self._host,
+                          self._port,
+                          self._secure,
+                          self._rpc_path)
+        shell = TracShell
+        server_methods = self._get_server_methods()
+        shell_methods = [getattr(shell, method)
+                         for method in dir(shell)
+                         if method.startswith('do_')]
+        shell_methods = filter(lambda x: hasattr(x, 'trac_method'),
+                               shell_methods)
+        for method in shell_methods:
+            if method.trac_method not in server_methods.keys():
+                delattr(shell, method.__name__)
+        self.shell = shell(self._trac)
+
+    def _get_server_methods(self):
+        multicall = xmlrpclib.MultiCall(self._trac._server)
+        remote_methods = self._trac._server.system.listMethods()
+
+        for method in remote_methods:
+            multicall.system.methodHelp(method)
+        doc_strings = ['\n'.join(help.splitlines()) for help in multicall()]
+
+        return dict(zip(remote_methods, doc_strings))
+
+    def run(self):
+        self.shell.cmdloop()
+
+class TracShell(cmd.Cmd):
+    """
+    TracShell is a shell interface to a Trac instance.
+    
+    It uses and XML-RPC interface to Trac provided by:
+
+        http://trac-hacks.org/wiki/XmlRpcPlugin#DownloadandSource
+    """
+
+    def __init__(self, trac_interface):
+        """ Initialize the XML-RPC interface to a Trac instance.
+
+        Arguments:
+        - `trac_interface`: an initialized tracshell.trac.Trac instance
+        """
         self._editor = self._find_editor()
-        self.trac = Trac(self._username,
-                         self._password,
-                         self._host,
-                         self._port,
-                         self._secure,
-                         self._rpc_path)
+        self.trac = trac_interface
 
         # set up shell options and shortcut keys
         cmd.Cmd.__init__(self)
         self.prompt = "trac->> "
         self.ruler = '-'
         self.intro = "Welcome to TracShell!\nType `help` for a list of commands"
-        self.shortcuts = {'Q': 'quit',
-                          'q': 'query',
-                          'v': 'view',
-                          'log': 'changelog',
-                          'c': 'create',
-                          'e': 'edit'}
+        self.shortcuts = self._build_shortcuts()
 
-    def precmd(self, line):
-        parts = line.split(' ', 1)
-        cmd = parts[0]
-        rest = parts[1:]
-        if cmd in self.shortcuts.keys():
-            return "%s %s" % (self.shortcuts[cmd], ''.join(rest))
-        else:
-            return line
+    def _build_shortcuts(self):
+        """
+        Return a dictionary of shortcut -> command-name
+        """
+        cmd_names = filter(lambda x: x.startswith('do_'), self.get_names())
+        cmd_fns = [getattr(self, cmd) for cmd in cmd_names]
+        cmd_fns = filter(lambda x: hasattr(x, 'shortcut'), cmd_fns)
+        return dict([(cmd.shortcut, cmd.__name__.split('_')[1])
+                     for cmd in cmd_fns])
 
     def _find_editor(self):
         """
@@ -76,6 +127,15 @@ class TracShell(cmd.Cmd):
         except KeyError:
             print "Warning: No editor found, see `help editors`"
             return None
+
+    def precmd(self, line):
+        parts = line.split(' ', 1)
+        cmd = parts[0]
+        rest = parts[1:]
+        if cmd in self.shortcuts.keys():
+            return "%s %s" % (self.shortcuts[cmd], ''.join(rest))
+        else:
+            return line
 
     def do_query(self, query):
         """
@@ -99,6 +159,8 @@ class TracShell(cmd.Cmd):
                                         data['summary'])
         else:
             print "Query returned no results"
+    do_query.trac_method = 'ticket.query'
+    do_query.shortcut = 'q'
 
     def do_view(self, ticket_id):
         """
@@ -125,6 +187,8 @@ class TracShell(cmd.Cmd):
                 print "%15s: %s" % (k, v)
         else:
             print "Ticket %s not found" % ticket_id
+    do_view.trac_method = 'ticket.get'
+    do_view.shortcut = 'v'
 
     def do_changelog(self, ticket_id):
         """
@@ -149,6 +213,8 @@ class TracShell(cmd.Cmd):
                 print "Changed '%s' from '%s' to '%s'\n" % (field,
                                                             old,
                                                             new)
+    do_changelog.trac_method = 'ticket.changeLog'
+    do_changelog.shortcut = 'log'
 
     def do_create(self, param_str):
         """
@@ -203,6 +269,8 @@ class TracShell(cmd.Cmd):
             print e
             print "Try `help create` for more info"
             pass
+    do_create.trac_method = 'ticket.create'
+    do_create.shortcut = 'c'
 
     def do_edit(self, ticket_id):
         """
@@ -253,6 +321,8 @@ class TracShell(cmd.Cmd):
             print "Updated ticket %s: %s" % (id, comment)
         else:
             print "Ticket %s not found"
+    do_edit.trac_method = 'ticket.update'
+    do_edit.shortcut = 'e'
 
     # option setter funcs
     # see `do_set`
@@ -334,6 +404,7 @@ class TracShell(cmd.Cmd):
         # possible bug?
         print "Goodbye!"
         sys.exit()
+    do_quit.shortcut = 'Q'
 
     # misc help functions
 
