@@ -2,44 +2,40 @@
 
 import sys
 from optparse import OptionParser
+
+from tracshell import settings
 from tracshell import shell
 
 def run():
     """
     This function starts the main program.
     """
-    p = OptionParser(version="tint: %f" % shell.VERSION)
-    p.add_option("--host", "-t", dest="host",
+    p = OptionParser(version="TracShell: %f" % shell.VERSION)
+    p.add_option("--site", "-s", dest="site",
                  action="store", type="string",
-                 default="localhost", help="Trac instance host")
-    p.add_option("--port", "-P", dest="port",
-                 action="store", type="int",
-                 default=None, help="Trac instance port")
-    p.add_option("-s", action="store_true", dest="secure",
-                 help="https (SSL) connection")
-    p.add_option("--user", "-u", dest="user",
+                 default=None, help="Optional site to connect to")
+    p.add_option("--file", "-f", dest="file",
                  action="store", type="string",
-                 default="anon", help="Trac username")
-    p.add_option("--pass", "-p", dest="passwd",
-                 action="store", type="string",
-                 default="anon", help="Trac password")
-    p.add_option("--path", "-a", dest="rpc_path",
-                 action="store", type="string",
-                 default="/login/xmlrpc", help="XML-RPC path")
+                 default=".tracshell", help="Specify the name of your settings file")
     opts, args = p.parse_args()
 
-    if not opts.port:
-        if opts.secure:
-            opts.port = 443
-        else:
-            opts.port = 80
+    s = settings.Settings(file=opts.file)
+    if opts.site:
+        site = s.sites[opts.site]
+    else:
+        try:
+            site = s.sites[s.default_site]
+        except AttributeError:
+            raise settings.ConfigError, "No default site specified"
+        except KeyError:
+            raise settings.ConfigError, "No default site specified"
 
-    tracshell = shell.Shell(opts.user,
-                            opts.passwd,
-                            opts.host,
-                            port=opts.port,
-                            secure=opts.secure,
-                            rpc_path=opts.rpc_path)
+    tracshell = shell.Shell(site.user,
+                            site.passwd,
+                            site.host,
+                            port=site.port,
+                            secure=site.secure,
+                            rpc_path=site.path)
 
     tracshell.run()
 

@@ -20,6 +20,7 @@ setup(name='TracShell',
       zip_safe=True,
       install_requires=[
           # -*- Extra requirements: -*-
+        "pyyaml",
       ],
       entry_points="""
       # -*- Entry points: -*-

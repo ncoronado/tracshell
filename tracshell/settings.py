@@ -1,16 +1,20 @@
 import os
 import sys
 
-import yaml
+try:
+    import yaml
+except ImportError:
+    print >> sys.stderr, "TracShell requires PyYAML to be installed."
+    sys.exit()
 
 class ConfigError(Exception): pass
 
-class TracSite(yaml.YAMLObject):
+class Site(yaml.YAMLObject):
     """
     This class stores information for connecting to a Trac instance.
     """
 
-    yaml_tag = u'!TracSite'
+    yaml_tag = u'!Site'
 
     def __init__(self, name, user, passwd, host, port, path, secure=False):
         self.name = name
@@ -24,7 +28,8 @@ class TracSite(yaml.YAMLObject):
 
 class Settings(object):
 
-    valid_settings = ['editor']
+    valid_settings = ['editor',
+                      'default_site']
 
     def __init__(self, file='.tracshell'):
         self.file = os.path.join(os.path.expanduser('~'), file)
@@ -39,11 +44,10 @@ class Settings(object):
 
     def _parse_settings(self, settings):
         for setting in settings:
-            if isinstance(setting, TracSite):
+            if isinstance(setting, Site):
                 self.sites[setting.name] = setting
             else:
                 if isinstance(setting, dict):
-                    print setting
                     for k,v in setting.iteritems():
                         if k in self.valid_settings:
                             setattr(self, k, v)
@@ -51,4 +55,3 @@ class Settings(object):
                             raise ConfigError, "Invalid config option: %s" % k
                 else:
                     pass
-                            
