@@ -226,7 +226,11 @@ class TracShell(cmd.Cmd):
                               "keywords=\n"]
             fh.writelines(template_lines)
             fh.close()
-            subprocess.call(self._editor.split() + [fname])
+            try:
+                subprocess.call(self._editor.split() + [fname])
+            except AttributeError:
+                print "No editor specified, see `help editors`"
+                return None
             try:
                 data = self.parse_ticket_file(open(fname))
             except ValueError:
@@ -282,7 +286,11 @@ class TracShell(cmd.Cmd):
             fh = open(fname, "w")
             fh.writelines(lines)
             fh.close()
-            subprocess.call([self._editor, fname])
+            try:
+                subprocess.call([self._editor, fname])
+            except AttributeError:
+                print "No editor set, see `help editors`"
+                return None
             try:
                 data = self.parse_ticket_file(open(fname))
             except ValueError:
