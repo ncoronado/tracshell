@@ -298,7 +298,8 @@ class TracShell(cmd.Cmd):
                 print "wrong. Please try submitting the ticket again"
                 print "or file a bug report with the TracShell devs."
                 return False
-            comment = data.pop('comment')
+            if data.has_key('comment'):
+                comment = data.pop('comment')
             # submit the difference between what went into the editor
             # and what came out
             orig_data.pop('comment') # we just popped it from data
