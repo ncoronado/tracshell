@@ -300,6 +300,8 @@ class TracShell(cmd.Cmd):
                 return False
             if data.has_key('comment'):
                 comment = data.pop('comment')
+            else:
+                comment = None
             # submit the difference between what went into the editor
             # and what came out
             orig_data.pop('comment') # we just popped it from data
