@@ -5,9 +5,12 @@ import tempfile
 import xmlrpclib
 import shlex
 
+from settings import Settings
 from trac import Trac
 
 VERSION = 0.1
+
+settings = Settings()
 
 class Shell(object):
     """
@@ -103,10 +106,13 @@ class TracShell(cmd.Cmd):
         user if one isn't found and return None.
         """
         try:
-            return os.environ['EDITOR']
-        except KeyError:
-            print "Warning: No editor found, see `help editors`"
-            return None
+            return settings.editor
+        except AttributeError:
+            try:
+                return os.environ['EDITOR']
+            except KeyError:
+                print "Warning: No editor found, see `help editors`"
+                return None
 
     def precmd(self, line):
         parts = line.split(' ', 1)
