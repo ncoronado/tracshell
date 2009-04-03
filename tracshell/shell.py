@@ -99,6 +99,43 @@ class TracShell(cmd.Cmd):
         return dict([(cmd.shortcut, cmd.__name__.split('_')[1])
                      for cmd in cmd_fns])
 
+    def _edit_ticket(self, initial_lines):
+        """
+        Launches a text editor so that the user can edit `initial_lines`,
+        which are in field=val format.
+        Returns a dictionary of key: val pairs or None if no edition took 
+        place or if something went wrong.
+        
+        Arguments:
+        - `initial_lines`: a list of lines to be edited
+        """
+        fname = tempfile.mktemp()
+        fh = open(fname, "w")
+        fh.writelines(initial_lines)
+        fh.close()
+        mtime_before = os.stat(fname).st_mtime
+        try:
+            subprocess.call([self._editor, fname])
+        except AttributeError:
+            print "No editor set, see `help editors`"
+            return None
+        mtime_after = os.stat(fname).st_mtime
+        if not (mtime_after > mtime_before): # no edition took place
+            print "Edition aborted"
+            return None
+        try:
+            fh = open(fname, "r")
+            lines = fh.readlines()
+            fh.close()
+            data = dict([line.split('=') for line in lines])
+            return data
+        except ValueError as e:
+            print "Something went wrong or the file was formatted"
+            print "wrong. Please try submitting the ticket again"
+            print "or file a bug report with the TracShell devs."
+            print u"Error: %s" % unicode(e)
+            return None
+    
     def _find_editor(self):
         """
         Try to find the users' editor by testing
@@ -230,19 +267,8 @@ class TracShell(cmd.Cmd):
                               "milestone=\n",
                               "version=\n",
                               "keywords=\n"]
-            fh.writelines(template_lines)
-            fh.close()
-            try:
-                subprocess.call(self._editor.split() + [fname])
-            except AttributeError:
-                print "No editor specified, see `help editors`"
-                return None
-            try:
-                data = self.parse_ticket_file(open(fname))
-            except ValueError:
-                print "Something went wrong or the file was formatted"
-                print "wrong. Please try submitting the ticket again"
-                print "or file a bug report with the TracShell devs."
+            data = self._edit_ticket(template_lines)
+            if data is None:
                 return False
             try:
                 id = self.trac.create_ticket(data.pop("summary"),
@@ -288,21 +314,8 @@ class TracShell(cmd.Cmd):
             orig_data['comment'] = "Your comment here"
             lines = ['%s=%s\n' % (k, v.rstrip())
                      for k, v in orig_data.iteritems()]
-            fname = tempfile.mktemp()
-            fh = open(fname, "w")
-            fh.writelines(lines)
-            fh.close()
-            try:
-                subprocess.call([self._editor, fname])
-            except AttributeError:
-                print "No editor set, see `help editors`"
-                return None
-            try:
-                data = self.parse_ticket_file(open(fname))
-            except ValueError:
-                print "Something went wrong or the file was formatted"
-                print "wrong. Please try submitting the ticket again"
-                print "or file a bug report with the TracShell devs."
+            data = self._edit_ticket(lines)
+            if data is None:
                 return False
             if data.has_key('comment'):
                 comment = data.pop('comment')
@@ -376,18 +389,6 @@ class TracShell(cmd.Cmd):
         - `string`: A string in the form of field1=val field2="long val"
         """
         data = dict([item.split('=') for item in shlex.split(q)])
-        return data
-
-    def parse_ticket_file(self, fh):
-        """
-        Parses a file with field=val bits on each line.
-        Returns a dictionary of key: val pairs.
-        
-        Arguments:
-        - `fh`: a python file object to parse
-        """
-        lines = fh.readlines()
-        data = dict([line.split('=') for line in lines])
         return data
 
     def do_quit(self, _):
