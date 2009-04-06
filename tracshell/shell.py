@@ -5,6 +5,7 @@ import tempfile
 import xmlrpclib
 import shlex
 
+from pydoc import pager
 from settings import Settings
 from trac import Trac
 
@@ -129,11 +130,11 @@ class TracShell(cmd.Cmd):
             fh.close()
             data = dict([line.split('=') for line in lines])
             return data
-        except ValueError as e:
+        except ValueError, e:
             print "Something went wrong or the file was formatted"
             print "wrong. Please try submitting the ticket again"
             print "or file a bug report with the TracShell devs."
-            print u"Error: %s" % unicode(e)
+            print "Error: %s" % unicode(e)
             return None
     
     def _find_editor(self):
@@ -174,12 +175,18 @@ class TracShell(cmd.Cmd):
             return
 
         tickets = self.trac.query_tickets(query)
+        output = []
         if tickets:
             for ticket in tickets:
                 (id, date, mod, data) = ticket
-                print "%5s: [%s] %s" % (id,
-                                        data['status'].center(8),
-                                        data['summary'])
+                output.append("%5s: [%s] %s" % (id,
+                                                data['status'].center(8),
+                                                data['summary']))
+            if len(output) > 10:
+                pager('\n'.join(output))
+            else:
+                for line in output:
+                    print line
         else:
             print "Query returned no results"
     do_query.trac_method = 'ticket.query'
@@ -201,13 +208,18 @@ class TracShell(cmd.Cmd):
             return
 
         if ticket:
+            output = []
             (id, created, modified, data) = ticket
             data['created'] = created
             data['last_modified'] = modified
 
-            print "Details for Ticket: %s\n" % id
+            output.append("Details for Ticket: %s" % id)
             for k, v in data.iteritems():
-                print "%15s: %s" % (k, v)
+                output.append("%15s: %s" % (k, v))
+            if len(output) > 10:
+                pager('\n'.join(output))
+            else:
+                print '\n'.join(output)
         else:
             print "Ticket %s not found" % ticket_id
     do_view.trac_method = 'ticket.get'
@@ -228,14 +240,19 @@ class TracShell(cmd.Cmd):
             print "Invalid ticket id specified."
             return
 
-        print "Changelog for Ticket %s:\n" % ticket_id
         if changes:
+            output = []
+            output.append("Changelog for Ticket %s:" % ticket_id)
             for change in changes:
                 (time, author, field, old, new, pflag) = change
-                print "%s by %s:" % (time, author)
-                print "Changed '%s' from '%s' to '%s'\n" % (field,
-                                                            old,
-                                                            new)
+                output.append("%s by %s:" % (time, author))
+                output.append("Changed '%s' from '%s' to '%s'\n" % (field,
+                                                                    old,
+                                                                    new))
+            if len(output) > 10:
+                pager('\n'.join(output))
+            else:
+                print '\n'.join(output)
     do_changelog.trac_method = 'ticket.changeLog'
     do_changelog.shortcut = 'log'
 
