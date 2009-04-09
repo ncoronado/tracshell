@@ -4,6 +4,7 @@ import subprocess
 import tempfile
 import xmlrpclib
 import shlex
+import re
 
 from pydoc import pager
 from settings import Settings
@@ -126,9 +127,14 @@ class TracShell(cmd.Cmd):
             return None
         try:
             fh = open(fname, "r")
-            lines = fh.readlines()
+            content = fh.read()
             fh.close()
-            data = dict([line.split('=') for line in lines])
+            # matches a word followed by a '=' with the rest of the content, which ends when the
+            # lookahead reveals either another word+'=' or the end of the string.
+            # Note: This can be fooled by starting a line with a space-less word followed by a '='
+            field_pattern = r"^(\S*?)=(.*?)(?=^\S*=|\Z)"
+            matches = re.findall(field_pattern, content, re.DOTALL | re.MULTILINE)
+            data = dict(matches)
             return data
         except ValueError, e:
             print "Something went wrong or the file was formatted"
