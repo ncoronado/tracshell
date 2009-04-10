@@ -178,6 +178,13 @@ class TracShell(cmd.Cmd):
         data = dict([item.split('=') for item in shlex.split(q)])
         return data
     
+    def _print_output(self, output_lines):
+        output = '\n'.join(output_lines)
+        if getattr(settings, 'pager', False) and len(output) > TERM_SIZE[0]:
+            pager(output)
+        else:
+            print output
+    
     def precmd(self, line):
         parts = line.split(' ')
         cmd = parts[0]
@@ -218,13 +225,7 @@ class TracShell(cmd.Cmd):
                 output.append("%5s: [%s] %s" % (id,
                                                 data['status'].center(8),
                                                 data['summary']))
-            if hasattr(settings, 'pager'):
-                if len(output) > TERM_SIZE[0]:
-                    pager('\n'.join(output))
-                else:
-                    print '\n'.join(output)
-            else:
-                print '\n'.join(output)
+            self._print_output(output)
         else:
             print "Query returned no results"
     do_query.trac_method = 'ticket.query'
@@ -253,13 +254,7 @@ class TracShell(cmd.Cmd):
             output.append("Details for Ticket: %s" % id)
             for k, v in data.iteritems():
                 output.append("%15s: %s" % (k, v))
-            if hasattr(settings, 'pager'):
-                if settings.pager and len(output) > TERM_SIZE[0]:
-                    pager('\n'.join(output))
-                else:
-                    print '\n'.join(output)
-            else:
-                print '\n'.join(output)
+            self._print_output(output)
         else:
             print "Ticket %s not found" % ticket_id
     do_view.trac_method = 'ticket.get'
@@ -288,13 +283,7 @@ class TracShell(cmd.Cmd):
                 output.append("Changed '%s' from '%s' to '%s'\n" % (field,
                                                                     old,
                                                                     new))
-            if hasattr(settings, 'pager'):
-                if len(output) > TERM_SIZE[0]:
-                    pager('\n'.join(output))
-                else:
-                    print '\n'.join(output)
-            else:
-                print '\n'.join(output)
+            self._print_output(output)
     do_changelog.trac_method = 'ticket.changeLog'
 
     def do_create(self, param_str):
