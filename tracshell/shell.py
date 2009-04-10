@@ -1,9 +1,12 @@
 import os, sys
 import cmd
+import fcntl
 import subprocess
 import tempfile
+import termios
 import xmlrpclib
 import shlex
+import struct
 import re
 
 from pydoc import pager
@@ -25,6 +28,9 @@ DEFAULT_ALIASES = {
 
 RESERVED_COMMANDS = set(['query', 'view', 'edit', 'create', 'changelog',
     'quit'])
+
+ioctl_out = fcntl.ioctl(sys.stdin, termios.TIOCGWINSZ, '1234')
+TERM_SIZE = struct.unpack('hh', ioctl_out)
 
 class Shell(object):
     """
@@ -215,7 +221,7 @@ class TracShell(cmd.Cmd):
                 output.append("%5s: [%s] %s" % (id,
                                                 data['status'].center(8),
                                                 data['summary']))
-            if len(output) > 10:
+            if len(output) > TERM_SIZE[0]:
                 pager('\n'.join(output))
             else:
                 for line in output:
@@ -248,7 +254,7 @@ class TracShell(cmd.Cmd):
             output.append("Details for Ticket: %s" % id)
             for k, v in data.iteritems():
                 output.append("%15s: %s" % (k, v))
-            if len(output) > 10:
+            if len(output) > TERM_SIZE[0]:
                 pager('\n'.join(output))
             else:
                 print '\n'.join(output)
@@ -280,7 +286,7 @@ class TracShell(cmd.Cmd):
                 output.append("Changed '%s' from '%s' to '%s'\n" % (field,
                                                                     old,
                                                                     new))
-            if len(output) > 10:
+            if len(output) > TERM_SIZE[0]:
                 pager('\n'.join(output))
             else:
                 print '\n'.join(output)
