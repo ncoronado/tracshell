@@ -80,6 +80,11 @@ class TracShell(cmd.Cmd):
             print "An editor is required be able to fully use TracShell. "\
                 "Either set the 'editor' field in your YAML file or your "\
                 "$EDITOR environment variable"
+        else:
+            if self._editor is None or self._editor == '':
+                print "An editor is required be able to fully use TracShell. "\
+                    "Either set the 'editor' field in your YAML file or your "\
+                    "$EDITOR environment variable"
         self.trac = trac_interface
 
         # set up shell options and shortcut keys
