@@ -157,7 +157,7 @@ class TracShell(cmd.Cmd):
             except KeyError:
                 print "Warning: No editor found, see `help editors`"
                 return None
-
+    
     def precmd(self, line):
         parts = line.split(' ', 1)
         cmd = parts[0]
@@ -266,7 +266,7 @@ class TracShell(cmd.Cmd):
         """
         Create and submit a new ticket to Trac instance
 
-        trac->> create `title` `desc` `type` ...
+        trac->> create `summary`
 
         This feature works but is still under development.
         Please report any bugs you find.
@@ -279,8 +279,6 @@ class TracShell(cmd.Cmd):
         # would like to launch a blank template tmp file
         # and parse the returned file
         try:
-            fname = tempfile.mktemp()
-            fh = open(fname, "w")
             template_lines = ["summary=%s\n" % param_str,
                               "reporter=\n",
                               "description=\n",
@@ -311,11 +309,11 @@ class TracShell(cmd.Cmd):
     do_create.trac_method = 'ticket.create'
     do_create.shortcut = 'c'
 
-    def do_edit(self, ticket_id):
+    def do_edit(self, param_str):
         """
         Edit a ticket in Trac
 
-        trac->> edit `ticket_id` `field_query`
+        trac->> edit `ticket_id` field1=value1 field2=value2
 
         This feature is still under development.
         Please report any bugs you find.
@@ -325,35 +323,42 @@ class TracShell(cmd.Cmd):
         Arguments:
         - `ticket_id`: the id of the ticket to edit
         """
-
+        
+        try:
+            ticket_id, changes = param_str.split(' ', 1)
+        except ValueError: # No changes specified
+            ticket_id = param_str
+            changes = None
         try:
             ticket = self.trac.get_ticket(int(ticket_id))
         except ValueError:
             print "Invalid ticket id specified."
             return
-
-        if ticket:
-            (id, created, modified, orig_data) = ticket
+        if not ticket:
+            print "Ticket %s not found" % ticket_id
+            return
+        id, created, modified, orig_data = ticket
+        if changes is None: # Summon the editor
             orig_data['comment'] = "Your comment here"
             lines = ['%s=%s\n' % (k, v.rstrip())
                      for k, v in orig_data.iteritems()]
             data = self._edit_ticket(lines)
             if data is None:
                 return False
-            if data.has_key('comment'):
-                comment = data.pop('comment')
-            else:
-                comment = None
             # submit the difference between what went into the editor
             # and what came out
-            orig_data.pop('comment') # we just popped it from data
             for k, v in orig_data.iteritems():
                 if v in data[k]:
                     data.pop(k)
-            self.trac.update_ticket(id, comment, data)
-            print "Updated ticket %s: %s" % (id, comment)
+        else: # just do the update
+            data = self.parse_query_str(changes)
+        if 'comment' in data:
+            comment = data.pop('comment')
         else:
-            print "Ticket %s not found"
+            comment = ''
+        self.trac.update_ticket(id, comment, data)
+        print "Updated ticket %s: %s" % (id, comment)
+    
     do_edit.trac_method = 'ticket.update'
     do_edit.shortcut = 'e'
 
