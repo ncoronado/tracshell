@@ -21,17 +21,16 @@ def run():
 
     s = settings.Settings(filename=opts.file)
     if opts.site:
-        site = s.sites[opts.site]
+        setattr(s, 'site', s.sites[opts.site])
     else:
         try:
-            site = s.sites[s.default_site]
+            setattr(s, 'site', s.sites[s.default_site])
         except AttributeError:
             raise settings.ConfigError, "No default site specified"
         except KeyError:
             raise settings.ConfigError, "No default site specified"
 
-    shell.start_shell(site.user, site.passwd, site.host, port=site.port,
-        secure=site.secure, rpc_path=site.path)
+    shell.start_shell(s)
 
 
 if __name__ == '__main__':

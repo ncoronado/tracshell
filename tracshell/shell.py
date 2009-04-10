@@ -29,27 +29,27 @@ RESERVED_COMMANDS = set(['query', 'view', 'edit', 'create', 'changelog',
 
 TERM_SIZE = get_termsize(sys.stdout)
 
-def start_shell(username, password, host, port=80, secure=False, 
-    rpc_path='/login/xmlrpc'):
+def start_shell(settings):
     """
     start_shell is a constructor class for building TracShell instances.
 
-    It queries the Trac server for the methods available to the user
-    and creates a TracShell instance with only matching methods.
-
-    >> from tracshell.shell import start_shell
-    >> start_shell('me', 'mypass', 'http://trac.myserver.org')
-    
     Arguments:
-    - `username`: the user to authenticate as
-    - `password`: a valid password
-    - `host`: the host name serving the Trac instance
-    - `port`: defaults to 80
-    - `secure`: whether https (SSL) is used
-    - `rpc_path`: the path to the XML-RPC interface of the Trac interface
+    - `settings`: a configured tracshell.settings.Settings object
+                  with a 'site' attribute set with the
+                  tracshell.settings.Site object set for the site
+                  to connect to.
     """
-    trac = Trac(username, password, host, port, secure, rpc_path)
-    shell = TracShell(trac)
+    trac = Trac(settings.site.user,
+                settings.site.passwd,
+                settings.site.host,
+                settings.site.port,
+                settings.site.secure,
+                settings.site.path)
+    editor = settings.editor if settings.editor else os.environ['EDITOR']
+    assert os.path.isfile(editor), "You must specify a valid path to an\
+                                    editor in your settings file or in your\
+                                    $EDITOR environment variable"
+    shell = TracShell(trac, editor)
     server_methods = trac._server.system.listMethods()
     shell_methods = [getattr(shell, x) for x in dir(shell)
         if x.startswith('do_')]
@@ -68,23 +68,14 @@ class TracShell(cmd.Cmd):
         http://trac-hacks.org/wiki/XmlRpcPlugin#DownloadandSource
     """
 
-    def __init__(self, trac_interface):
+    def __init__(self, trac_interface, editor):
         """ Initialize the XML-RPC interface to a Trac instance.
 
         Arguments:
         - `trac_interface`: an initialized tracshell.trac.Trac instance
+        - `editor`: a path to a valid editor
         """
-        try:
-            self._editor = getattr(settings, 'editor', os.environ['EDITOR'])
-        except KeyError:
-            print "An editor is required be able to fully use TracShell. "\
-                "Either set the 'editor' field in your YAML file or your "\
-                "$EDITOR environment variable"
-        else:
-            if self._editor is None or self._editor == '':
-                print "An editor is required be able to fully use TracShell. "\
-                    "Either set the 'editor' field in your YAML file or your "\
-                    "$EDITOR environment variable"
+        self._editor = editor
         self.trac = trac_interface
 
         # set up shell options and shortcut keys

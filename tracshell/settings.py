@@ -37,7 +37,7 @@ class Settings(object):
     
     def _parse_rest(self, yaml_object):
         if isinstance(yaml_object, dict):
-            for k, v in yaml_object.items():
+            for k, v in yaml_object.iteritems():
                 if k in self.valid_settings:
                     setattr(self, k, v)
                 else:
