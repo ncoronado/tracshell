@@ -96,7 +96,12 @@ class TracShell(cmd.Cmd):
         Arguments:
         - `trac_interface`: an initialized tracshell.trac.Trac instance
         """
-        self._editor = self._find_editor()
+        try:
+            self._editor = getattr(settings, 'editor', os.environ['EDITOR'])
+        except KeyError:
+            print "An editor is required be able to fully use TracShell. "\
+                "Either set the 'editor' field in your YAML file or your "\
+                "$EDITOR environment variable"
         self.trac = trac_interface
 
         # set up shell options and shortcut keys
@@ -129,7 +134,7 @@ class TracShell(cmd.Cmd):
         try:
             subprocess.call([self._editor, fname])
         except AttributeError:
-            print "No editor set, see `help editors`"
+            print "No editor set. Can't continue"
             return None
         mtime_after = os.stat(fname).st_mtime
         if not (mtime_after > mtime_before): # no edition took place
@@ -152,21 +157,6 @@ class TracShell(cmd.Cmd):
             print "or file a bug report with the TracShell devs."
             print "Error: %s" % unicode(e)
             return None
-    
-    def _find_editor(self):
-        """
-        Try to find the users' editor by testing
-        the $EDITOR environment variable, warn the
-        user if one isn't found and return None.
-        """
-        try:
-            return settings.editor
-        except AttributeError:
-            try:
-                return os.environ['EDITOR']
-            except KeyError:
-                print "Warning: No editor found, see `help editors`"
-                return None
     
     def _parse_query_str(self, q):
         """
@@ -383,53 +373,6 @@ class TracShell(cmd.Cmd):
         print "Updated ticket %s: %s" % (id, comment)
     
     do_edit.trac_method = 'ticket.update'
-
-    # option setter funcs
-    # see `do_set`
-
-    def set_editor(self, editor):
-        """
-        Set the path to the editor to invoke for manipulating
-        tickets, comments, etc.
-
-        Arguments:
-        - `editor`: the path to an editor
-        """
-        if os.path.exists(editor.split(' ')[0]):
-            self._editor = editor
-        else:
-            raise ValueError, "Not a valid path to an editor"
-
-    # misc support funcs
-
-    def do_set(self, query_str):
-        """
-        Set an option using a query string.
-
-        Valid options are:
-
-        - `editor`: A valid path to your favorite editor
-
-        See `help queries` for more information.
-        
-        Arguments:
-        - `query_str`: A query string of options to set
-        """
-        try:
-            data = self._parse_query_str(query_str)
-        except ValueError, e:
-            print "Warning: Invalid query string for `set`"
-            print "Try fixing %s" % query_str
-            print "See `help queries` for more information."
-            pass
-
-        for k, v in data.iteritems():
-            if hasattr(self, 'set_%s' % k):
-                try:
-                    getattr(self, 'set_%s' % k)(v)
-                except Exception, e:
-                    print e
-                    pass
     
     def do_quit(self, _):
         """
@@ -459,25 +402,10 @@ class TracShell(cmd.Cmd):
 
         """
         print text
-
-    def help_editors(self):
-        text = """
-        TracShell uses your preferred text editor for
-        editing and creating tickets, comments, and so
-        forth. It tries to find your preferred editor
-        by looking for it in the $EDITOR environment
-        variable.
-
-        If not set, you may get a warning. In this case,
-        see the `help set` command for setting up options
-        inside the TracShell.
-        """
-        print text
-
+    
     def help_aliases(self):
         text = "Here is the list of the currently defined aliases:"
         print text
         for k, v in self.aliases.items():
             print "%15s: %s" % (k, v)
     
-
