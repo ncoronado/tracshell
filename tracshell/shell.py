@@ -29,57 +29,35 @@ RESERVED_COMMANDS = set(['query', 'view', 'edit', 'create', 'changelog',
 
 TERM_SIZE = get_termsize(sys.stdout)
 
-class Shell(object):
+def start_shell(username, password, host, port=80, secure=False, 
+    rpc_path='/login/xmlrpc'):
     """
-    Shell is a constructor class for building TracShell instances.
+    start_shell is a constructor class for building TracShell instances.
 
     It queries the Trac server for the methods available to the user
     and creates a TracShell instance with only matching methods.
 
-    >> from tracshell.shell import Shell
-    >> trac = Shell('me', 'mypass', 'http://trac.myserver.org')
-    >> trac.run()
+    >> from tracshell.shell import start_shell
+    >> start_shell('me', 'mypass', 'http://trac.myserver.org')
+    
+    Arguments:
+    - `username`: the user to authenticate as
+    - `password`: a valid password
+    - `host`: the host name serving the Trac instance
+    - `port`: defaults to 80
+    - `secure`: whether https (SSL) is used
+    - `rpc_path`: the path to the XML-RPC interface of the Trac interface
     """
-
-    def __init__(self, username, password, host, port=80,
-                 secure=False, rpc_path='/login/xmlrpc'):
-        """
-        Initialize the Trac interface and build the TracShell instance
-
-        Arguments:
-        - `username`: the user to authenticate as
-        - `password`: a valid password
-        - `host`: the host name serving the Trac instance
-        - `port`: defaults to 80
-        - `secure`: whether https (SSL) is used
-        - `rpc_path`: the path to the XML-RPC interface of the Trac interface
-        """
-        self._username = username
-        self._password = password
-        self._host = host
-        self._port = port
-        self._rpc_path = rpc_path
-        self._secure = secure
-        self._trac = Trac(self._username,
-                          self._password,
-                          self._host,
-                          self._port,
-                          self._secure,
-                          self._rpc_path)
-        shell = TracShell
-        server_methods = self._trac._server.system.listMethods()
-        shell_methods = [getattr(shell, method)
-                         for method in dir(shell)
-                         if method.startswith('do_')]
-        shell_methods = filter(lambda x: hasattr(x, 'trac_method'),
-                               shell_methods)
-        for method in shell_methods:
-            if method.trac_method not in server_methods:
-                delattr(shell, method.__name__)
-        self.shell = shell(self._trac)
-
-    def run(self):
-        self.shell.cmdloop()
+    trac = Trac(username, password, host, port, secure, rpc_path)
+    shell = TracShell(trac)
+    server_methods = trac._server.system.listMethods()
+    shell_methods = [getattr(shell, x) for x in dir(shell)
+        if x.startswith('do_')]
+    shell_methods = [x for x in shell_methods if hasattr(x, 'trac_method')]
+    for method in shell_methods:
+        if method.trac_method not in server_methods:
+            delattr(shell, method.__name__)
+    shell.cmdloop()
 
 class TracShell(cmd.Cmd):
     """

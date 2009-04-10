@@ -30,14 +30,9 @@ def run():
         except KeyError:
             raise settings.ConfigError, "No default site specified"
 
-    tracshell = shell.Shell(site.user,
-                            site.passwd,
-                            site.host,
-                            port=site.port,
-                            secure=site.secure,
-                            rpc_path=site.path)
+    shell.start_shell(site.user, site.passwd, site.host, port=site.port,
+        secure=site.secure, rpc_path=site.path)
 
-    tracshell.run()
 
 if __name__ == '__main__':
     run()
