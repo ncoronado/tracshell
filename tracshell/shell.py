@@ -45,11 +45,11 @@ def start_shell(settings):
                 settings.site.port,
                 settings.site.secure,
                 settings.site.path)
-    editor = settings.editor if settings.editor else os.environ['EDITOR']
-    assert os.path.isfile(editor), "You must specify a valid path to an\
-                                    editor in your settings file or in your\
-                                    $EDITOR environment variable"
-    shell = TracShell(trac, editor)
+    if not os.path.isfile(settings.editor):
+        print >> sys.stderr, "You must provide a path to a valid editor."
+        print >> sys.stderr, "Please check your settings and try again."
+        sys.exit()
+    shell = TracShell(trac, settings.editor)
     server_methods = trac._server.system.listMethods()
     shell_methods = [getattr(shell, x) for x in dir(shell)
         if x.startswith('do_')]

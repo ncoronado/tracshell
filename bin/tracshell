@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import os
 import sys
 from optparse import OptionParser
 
@@ -29,9 +30,16 @@ def run():
             raise settings.ConfigError, "No default site specified"
         except KeyError:
             raise settings.ConfigError, "No default site specified"
-
-    shell.start_shell(s)
-
+    if hasattr(s, 'editor'):
+        shell.start_shell(s)
+    else:
+        try:
+            s.editor = os.environ['EDITOR']
+        except KeyError:
+            print >> sys.stderr, "Please specify an editor in your settings"
+            print >> sys.stderr, "or set your EDITOR environment variable."
+        else:
+            shell.start_shell(s)
 
 if __name__ == '__main__':
     run()
