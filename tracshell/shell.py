@@ -15,11 +15,11 @@ VERSION = 0.1
 settings = Settings()
 
 DEFAULT_ALIASES = {
-    'q': 'query',
-    'v': 'view',
-    'e': 'edit',
-    'c': 'create',
-    'log': 'changelog',
+    'q': 'query $0',
+    'v': 'view $0',
+    'e': 'edit $0',
+    'c': 'create $0',
+    'log': 'changelog $0',
     'Q': 'quit',
 }
 
