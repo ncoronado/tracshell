@@ -9,49 +9,46 @@ except ImportError:
 
 class ConfigError(Exception): pass
 
+# PyYAML note: While the documentation about YAMLObject gives an example with
+# __init__, the issue 48, at http://pyyaml.org/ticket/48, reveals that
+# __init__ is in fact never called. I thus removed the __init__ methods.
+
 class Site(yaml.YAMLObject):
     """
     This class stores information for connecting to a Trac instance.
     """
-
     yaml_tag = u'!Site'
-
-    def __init__(self, name, user, passwd, host, port, path, secure=False):
-        self.name = name
-        self.user = user
-        self.passwd = passwd
-        self.host = host
-        self.port = port
-        self.path = path
-        self.secure = secure
-
 
 class Settings(object):
 
-    valid_settings = ['editor',
-                      'default_site']
+    valid_settings = ['editor', 'default_site', 'aliases']
 
-    def __init__(self, file='.tracshell'):
-        self.file = os.path.join(os.path.expanduser('~'), file)
-        self.sites = dict()
+    def __init__(self, filename='.tracshell'):
+        filename = os.path.join(os.path.expanduser('~'), filename)
+        self.sites = {}
+        self.aliases = {}
         
         try:
-            self._settings = yaml.load_all(open(self.file))
+            yaml_objects = yaml.load_all(open(filename))
         except yaml.YAMLError, e:
             print >> sys.stderr, "Error parsing settings file: %s" % e
         else:
-            self._parse_settings(self._settings)
-
-    def _parse_settings(self, settings):
-        for setting in settings:
-            if isinstance(setting, Site):
-                self.sites[setting.name] = setting
-            else:
-                if isinstance(setting, dict):
-                    for k,v in setting.iteritems():
-                        if k in self.valid_settings:
-                            setattr(self, k, v)
-                        else:
-                            raise ConfigError, "Invalid config option: %s" % k
+            self._parse_settings(yaml_objects)
+    
+    def _parse_rest(self, yaml_object):
+        if isinstance(yaml_object, dict):
+            for k, v in yaml_object.items():
+                if k in self.valid_settings:
+                    setattr(self, k, v)
                 else:
-                    pass
+                    raise ConfigError("Invalid config option: %s" % k)
+    
+    def _parse_site(self, site):
+        self.sites[site.name] = site
+    
+    def _parse_settings(self, yaml_objects):
+        for yaml_object in yaml_objects:
+            if isinstance(yaml_object, Site):
+                self._parse_site(yaml_object)
+            else:
+                self._parse_rest(yaml_object)

@@ -19,7 +19,7 @@ def run():
                  default=".tracshell", help="Specify the name of your settings file")
     opts, args = p.parse_args()
 
-    s = settings.Settings(file=opts.file)
+    s = settings.Settings(filename=opts.file)
     if opts.site:
         site = s.sites[opts.site]
     else:

@@ -14,6 +14,18 @@ VERSION = 0.1
 
 settings = Settings()
 
+DEFAULT_ALIASES = {
+    'q': 'query',
+    'v': 'view',
+    'e': 'edit',
+    'c': 'create',
+    'log': 'changelog',
+    'Q': 'quit',
+}
+
+RESERVED_COMMANDS = set(['query', 'view', 'edit', 'create', 'changelog',
+    'quit'])
+
 class Shell(object):
     """
     Shell is a constructor class for building TracShell instances.
@@ -89,18 +101,13 @@ class TracShell(cmd.Cmd):
         self.prompt = "trac->> "
         self.ruler = '-'
         self.intro = "Welcome to TracShell!\nType `help` for a list of commands"
-        self.shortcuts = self._build_shortcuts()
-
-    def _build_shortcuts(self):
-        """
-        Return a dictionary of shortcut -> command-name
-        """
-        cmd_names = filter(lambda x: x.startswith('do_'), self.get_names())
-        cmd_fns = [getattr(self, cmd) for cmd in cmd_names]
-        cmd_fns = filter(lambda x: hasattr(x, 'shortcut'), cmd_fns)
-        return dict([(cmd.shortcut, cmd.__name__.split('_')[1])
-                     for cmd in cmd_fns])
-
+        self.aliases = {}
+        for k, v in settings.aliases.items():
+            if k not in RESERVED_COMMANDS:
+                self.aliases[k] = v
+        # built-in shortcuts have priority, so they overwrite aliases
+        self.aliases.update(DEFAULT_ALIASES)
+    
     def _edit_ticket(self, initial_lines):
         """
         Launches a text editor so that the user can edit `initial_lines`,
@@ -158,12 +165,32 @@ class TracShell(cmd.Cmd):
                 print "Warning: No editor found, see `help editors`"
                 return None
     
+    def _parse_query_str(self, q):
+        """
+        Parse a query string
+
+        Arguments:
+        - `string`: A string in the form of field1=val field2="long val"
+        """
+        data = dict([item.split('=') for item in shlex.split(q)])
+        return data
+    
     def precmd(self, line):
-        parts = line.split(' ', 1)
+        parts = line.split(' ')
         cmd = parts[0]
-        rest = parts[1:]
-        if cmd in self.shortcuts.keys():
-            return "%s %s" % (self.shortcuts[cmd], ''.join(rest))
+        if cmd in self.aliases:
+            cmd = self.aliases[cmd]
+            args = parts[1:]
+            unused_args = [] # they go into $0 if it exists
+            for index, arg in enumerate(args):
+                param_placeholder = '$%d' % (index + 1)
+                if param_placeholder in cmd:
+                    cmd = cmd.replace(param_placeholder, arg)
+                else:
+                    unused_args.append(arg)
+            if unused_args and '$0' in cmd:
+                cmd = cmd.replace('$0', ' '.join(unused_args))
+            return cmd
         else:
             return line
 
@@ -196,7 +223,6 @@ class TracShell(cmd.Cmd):
         else:
             print "Query returned no results"
     do_query.trac_method = 'ticket.query'
-    do_query.shortcut = 'q'
 
     def do_view(self, ticket_id):
         """
@@ -229,7 +255,6 @@ class TracShell(cmd.Cmd):
         else:
             print "Ticket %s not found" % ticket_id
     do_view.trac_method = 'ticket.get'
-    do_view.shortcut = 'v'
 
     def do_changelog(self, ticket_id):
         """
@@ -260,7 +285,6 @@ class TracShell(cmd.Cmd):
             else:
                 print '\n'.join(output)
     do_changelog.trac_method = 'ticket.changeLog'
-    do_changelog.shortcut = 'log'
 
     def do_create(self, param_str):
         """
@@ -307,7 +331,6 @@ class TracShell(cmd.Cmd):
             print "Try `help create` for more info"
             pass
     do_create.trac_method = 'ticket.create'
-    do_create.shortcut = 'c'
 
     def do_edit(self, param_str):
         """
@@ -351,7 +374,7 @@ class TracShell(cmd.Cmd):
                 if v in data[k]:
                     data.pop(k)
         else: # just do the update
-            data = self.parse_query_str(changes)
+            data = self._parse_query_str(changes)
         if 'comment' in data:
             comment = data.pop('comment')
         else:
@@ -360,7 +383,6 @@ class TracShell(cmd.Cmd):
         print "Updated ticket %s: %s" % (id, comment)
     
     do_edit.trac_method = 'ticket.update'
-    do_edit.shortcut = 'e'
 
     # option setter funcs
     # see `do_set`
@@ -394,7 +416,7 @@ class TracShell(cmd.Cmd):
         - `query_str`: A query string of options to set
         """
         try:
-            data = self.parse_query_str(query_str)
+            data = self._parse_query_str(query_str)
         except ValueError, e:
             print "Warning: Invalid query string for `set`"
             print "Try fixing %s" % query_str
@@ -408,17 +430,7 @@ class TracShell(cmd.Cmd):
                 except Exception, e:
                     print e
                     pass
-        
-    def parse_query_str(self, q):
-        """
-        Parse a query string
-
-        Arguments:
-        - `string`: A string in the form of field1=val field2="long val"
-        """
-        data = dict([item.split('=') for item in shlex.split(q)])
-        return data
-
+    
     def do_quit(self, _):
         """
         Quit the program
@@ -430,7 +442,6 @@ class TracShell(cmd.Cmd):
         # possible bug?
         print "Goodbye!"
         sys.exit()
-    do_quit.shortcut = 'Q'
 
     # misc help functions
 
@@ -463,11 +474,10 @@ class TracShell(cmd.Cmd):
         """
         print text
 
-    def help_shortcuts(self):
-        text = """
-        TracShell does have shortcuts for those inclined to
-        save a few keystrokes. They are as follows:
-        """
+    def help_aliases(self):
+        text = "Here is the list of the currently defined aliases:"
         print text
-        for k, v in self.shortcuts.iteritems():
+        for k, v in self.aliases.items():
             print "%15s: %s" % (k, v)
+    
+
