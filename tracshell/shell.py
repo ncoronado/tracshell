@@ -218,7 +218,7 @@ class TracShell(cmd.Cmd):
                 output.append("%5s: [%s] %s" % (id,
                                                 data['status'].center(8),
                                                 data['summary']))
-            if hasatter(settings, 'pager'):
+            if hasattr(settings, 'pager'):
                 if len(output) > TERM_SIZE[0]:
                     pager('\n'.join(output))
                 else:
