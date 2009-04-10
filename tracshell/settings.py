@@ -21,7 +21,7 @@ class Site(yaml.YAMLObject):
 
 class Settings(object):
 
-    valid_settings = ['editor', 'default_site', 'aliases']
+    valid_settings = ['editor', 'default_site', 'aliases', 'pager']
 
     def __init__(self, filename='.tracshell'):
         filename = os.path.join(os.path.expanduser('~'), filename)

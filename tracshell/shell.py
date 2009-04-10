@@ -1,17 +1,15 @@
 import os, sys
 import cmd
-import fcntl
 import subprocess
 import tempfile
-import termios
 import xmlrpclib
 import shlex
-import struct
 import re
 
 from pydoc import pager
-from settings import Settings
-from trac import Trac
+from tracshell.helpers import get_termsize
+from tracshell.settings import Settings
+from tracshell.trac import Trac
 
 VERSION = 0.1
 
@@ -29,8 +27,7 @@ DEFAULT_ALIASES = {
 RESERVED_COMMANDS = set(['query', 'view', 'edit', 'create', 'changelog',
     'quit'])
 
-ioctl_out = fcntl.ioctl(sys.stdin, termios.TIOCGWINSZ, '1234')
-TERM_SIZE = struct.unpack('hh', ioctl_out)
+TERM_SIZE = get_termsize(sys.stdout)
 
 class Shell(object):
     """
@@ -221,11 +218,13 @@ class TracShell(cmd.Cmd):
                 output.append("%5s: [%s] %s" % (id,
                                                 data['status'].center(8),
                                                 data['summary']))
-            if len(output) > TERM_SIZE[0]:
-                pager('\n'.join(output))
+            if hasatter(settings, 'pager'):
+                if len(output) > TERM_SIZE[0]:
+                    pager('\n'.join(output))
+                else:
+                    print '\n'.join(output)
             else:
-                for line in output:
-                    print line
+                print '\n'.join(output)
         else:
             print "Query returned no results"
     do_query.trac_method = 'ticket.query'
@@ -254,8 +253,11 @@ class TracShell(cmd.Cmd):
             output.append("Details for Ticket: %s" % id)
             for k, v in data.iteritems():
                 output.append("%15s: %s" % (k, v))
-            if len(output) > TERM_SIZE[0]:
-                pager('\n'.join(output))
+            if hasattr(settings, 'pager'):
+                if settings.pager and len(output) > TERM_SIZE[0]:
+                    pager('\n'.join(output))
+                else:
+                    print '\n'.join(output)
             else:
                 print '\n'.join(output)
         else:
@@ -286,8 +288,11 @@ class TracShell(cmd.Cmd):
                 output.append("Changed '%s' from '%s' to '%s'\n" % (field,
                                                                     old,
                                                                     new))
-            if len(output) > TERM_SIZE[0]:
-                pager('\n'.join(output))
+            if hasattr(settings, 'pager'):
+                if len(output) > TERM_SIZE[0]:
+                    pager('\n'.join(output))
+                else:
+                    print '\n'.join(output)
             else:
                 print '\n'.join(output)
     do_changelog.trac_method = 'ticket.changeLog'
