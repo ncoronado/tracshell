@@ -45,10 +45,8 @@ def start_shell(settings):
                 settings.site.port,
                 settings.site.secure,
                 settings.site.path)
-    if not os.path.isfile(settings.editor):
-        print >> sys.stderr, "You must provide a path to a valid editor."
-        print >> sys.stderr, "Please check your settings and try again."
-        sys.exit()
+    if settings.editor is None or settings.editor == '':
+        print >> sys.stderr, "Warning, no editor set."
     shell = TracShell(trac, settings.editor)
     server_methods = trac._server.system.listMethods()
     shell_methods = [getattr(shell, x) for x in dir(shell)
@@ -107,7 +105,7 @@ class TracShell(cmd.Cmd):
         mtime_before = os.stat(fname).st_mtime
         try:
             subprocess.call([self._editor, fname])
-        except AttributeError:
+        except (AttributeError, OSError):
             print "No editor set. Can't continue"
             return None
         mtime_after = os.stat(fname).st_mtime
