@@ -9,7 +9,7 @@ import re
 from pydoc import pager
 from tracshell.helpers import get_termsize
 from tracshell.settings import Settings
-from tracshell.trac import Trac
+from tracshell.proxy import TracProxy, ValidationError
 
 VERSION = 0.1
 
@@ -39,16 +39,16 @@ def start_shell(settings):
                   tracshell.settings.Site object set for the site
                   to connect to.
     """
-    trac = Trac(settings.site.user,
-                settings.site.passwd,
-                settings.site.host,
-                settings.site.port,
-                settings.site.secure,
-                settings.site.path)
+    trac = TracProxy(settings.site.user,
+                     settings.site.passwd,
+                     settings.site.host,
+                     settings.site.port,
+                     settings.site.path,
+                     settings.site.secure)
     if settings.editor is None or settings.editor == '':
         print >> sys.stderr, "Warning, no editor set."
     shell = TracShell(trac, settings.editor)
-    server_methods = trac._server.system.listMethods()
+    server_methods = trac.methods.keys()
     shell_methods = [getattr(shell, x) for x in dir(shell)
         if x.startswith('do_')]
     shell_methods = [x for x in shell_methods if hasattr(x, 'trac_method')]
@@ -120,8 +120,9 @@ class TracShell(cmd.Cmd):
             # lookahead reveals either another word+'=' or the end of the string.
             # Note: This can be fooled by starting a line with a space-less word followed by a '='
             field_pattern = r"^(\S*?)=(.*?)(?=^\S*=|\Z)"
-            matches = re.findall(field_pattern, content, re.DOTALL | re.MULTILINE)
-            data = dict(matches)
+            matches = re.findall(field_pattern, content,
+                                 re.DOTALL | re.MULTILINE)
+            data = dict([(f, v.strip()) for f, v in matches])
             return data
         except ValueError, e:
             print "Something went wrong or the file was formatted"
@@ -179,14 +180,13 @@ class TracShell(cmd.Cmd):
             print "No query specified."
             return
 
-        tickets = self.trac.query_tickets(query)
+        tickets = self.trac.query_tickets('&'.join(shlex.split(query)))
         output = []
         if tickets:
             for ticket in tickets:
-                (id, date, mod, data) = ticket
-                output.append("%5s: [%s] %s" % (id,
-                                                data['status'].center(8),
-                                                data['summary']))
+                output.append("%5s: [%s] %s" % (ticket.id,
+                                                ticket.status.center(8),
+                                                ticket.summary))
             self._print_output(output)
         else:
             print "Query returned no results"
@@ -209,11 +209,11 @@ class TracShell(cmd.Cmd):
 
         if ticket:
             output = []
-            (id, created, modified, data) = ticket
-            data['created'] = created
-            data['last_modified'] = modified
+            data = ticket.get_attrs()
+            data['created'] = ticket.created
+            data['last_modified'] = ticket.modified
 
-            output.append("Details for Ticket: %s" % id)
+            output.append("Details for Ticket: %s" % ticket.id)
             for k, v in data.iteritems():
                 output.append("%15s: %s" % (k, v))
             self._print_output(output)
@@ -231,7 +231,7 @@ class TracShell(cmd.Cmd):
         - `ticket_id`: An integer id of the ticket to view
         """
         try:
-            changes = self.trac.get_ticket_changelog(int(ticket_id))
+            changes = self.trac.get_changelog(int(ticket_id))
         except ValueError:
             print "Invalid ticket id specified."
             return
@@ -266,7 +266,7 @@ class TracShell(cmd.Cmd):
         # and parse the returned file
         try:
             template_lines = ["summary=%s\n" % param_str,
-                              "reporter=\n",
+                              "reporter=%s\n" % self.trac._user,
                               "description=\n",
                               "type=\n",
                               "priority=\n",
@@ -280,7 +280,10 @@ class TracShell(cmd.Cmd):
             try:
                 id = self.trac.create_ticket(data.pop("summary"),
                                              data.pop("description"),
-                                             data)
+                                             fields=data)
+            except ValidationError, e:
+                print e
+                return False
             except Exception, e:
                 print "A problem has occurred communicating with Trac."
                 print "Error: %s" % e
@@ -322,8 +325,8 @@ class TracShell(cmd.Cmd):
         if not ticket:
             print "Ticket %s not found" % ticket_id
             return
-        id, created, modified, orig_data = ticket
         if changes is None: # Summon the editor
+            orig_data = ticket.get_attrs()
             orig_data['comment'] = "Your comment here"
             lines = ['%s=%s\n' % (k, v.rstrip())
                      for k, v in orig_data.iteritems()]
@@ -334,15 +337,17 @@ class TracShell(cmd.Cmd):
             # and what came out
             for k, v in orig_data.iteritems():
                 if v in data[k]:
-                    data.pop(k)
+                    del(data[k])
         else: # just do the update
             data = self._parse_query_str(changes)
         if 'comment' in data:
             comment = data.pop('comment')
         else:
             comment = ''
-        self.trac.update_ticket(id, comment, data)
-        print "Updated ticket %s: %s" % (id, comment)
+        for k, v in data.iteritems():
+            setattr(ticket, k, v)
+        self.trac.save_ticket(ticket, comment)
+        print "Updated ticket %s: %s" % (ticket.id, comment)
     
     do_edit.trac_method = 'ticket.update'
     
