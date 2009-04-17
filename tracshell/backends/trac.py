@@ -8,42 +8,41 @@ class Ticket(object):
     A class that represents a Trac ticket
     """
 
-    def __get_id(self):
-        return self.__id
-
-    def __get_created(self):
-        return self.__created
-
-    def __get_modified(self):
-        return self.__modified
-
-    def __get_original(self):
-        return self.__original_data
-
-    id = property(fget=__get_id)
-    created = property(fget=__get_created)
-    modified = property(fget=__get_modified)
-    original_data = property(fget=__get_original)
-
     def __init__(self, data):
         """
         Arguments:
         - `data`: an object returned by the ticket.get
                   XML-RPC call or a dictionary of attributes
         """
-        self.__id = data[0] if isinstance(data, list) else None
-        self.__created = data[1] if isinstance(data, list) else None
-        self.__modified = data[2] if isinstance(data, list) else None
+        self._id = data[0] if isinstance(data, list) else None
+        self._created = data[1] if isinstance(data, list) else None
+        self._modified = data[2] if isinstance(data, list) else None
         # this is kind of ugly here, but prevents mod'ing
         # original_data -- a dict is still mutable and property()
         # doesn't appear to protect it.
         if isinstance(data, list):
-            self.__original_data = dict_to_tuple(data[3])
+            self._original_data = dict_to_tuple(data[3])
             for k, v in data[3].iteritems():
                 setattr(self, k, v)
         else:
             for k, v in data.iteritems():
                 setattr(self, k, v)
+
+    @property
+    def id(self):
+        return self._id
+
+    @property
+    def created(self):
+        return self._created
+
+    @property
+    def modified(self):
+        return self._modified
+
+    @property
+    def original_data(self):
+        return self._original_data
 
     def __str__(self):
         return "<Ticket #%s>" % self.id
