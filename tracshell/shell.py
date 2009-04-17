@@ -9,7 +9,7 @@ import re
 from pydoc import pager
 from tracshell.helpers import get_termsize
 from tracshell.settings import Settings
-from tracshell.proxy import TracProxy, ValidationError
+from tracshell.proxy import TracProxy, ValidationError, CallFailed
 
 VERSION = 0.1
 
@@ -176,20 +176,20 @@ class TracShell(cmd.Cmd):
         Arguments:
         - `query`: A Trac query string (see `help queries` for more info)
         """
-        if not(query.strip()):
-            print "No query specified."
-            return
-
-        tickets = self.trac.query_tickets('&'.join(shlex.split(query)))
-        output = []
-        if tickets:
-            for ticket in tickets:
-                output.append("%5s: [%s] %s" % (ticket.id,
-                                                ticket.status.center(8),
-                                                ticket.summary))
-            self._print_output(output)
+        try:
+            tickets = self.trac.query_tickets('&'.join(shlex.split(query)))
+        except CallFailed:
+            print >> sys.stderr, "Bad query specified, please see `help queries`"
         else:
-            print "Query returned no results"
+            output = []
+            if tickets:
+                for ticket in tickets:
+                    output.append("%5s: [%s] %s" % (ticket.id,
+                                                    ticket.status.center(8),
+                                                    ticket.summary))
+                self._print_output(output)
+            else:
+                print "Query returned no results"
     do_query.trac_method = 'ticket.query'
 
     def do_view(self, ticket_id):
