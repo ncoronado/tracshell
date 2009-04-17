@@ -22,14 +22,25 @@ def run():
 
     s = settings.Settings(filename=opts.file)
     if opts.site:
-        setattr(s, 'site', s.sites[opts.site])
+        try:
+            setattr(s, 'site', s.sites[opts.site])
+        except KeyError:
+            try:
+                print >> sys.stderr, "Invalid site, trying default '%s'" % \
+                    (s.default_site)
+                setattr(s, 'site', s.sites[s.default_site])
+            except AttributeError:
+                print >> sys.stderr, "No default site specified"
+                print >> sys.stderr, "Please check your configuration file"
+                sys.exit()
     else:
         try:
             setattr(s, 'site', s.sites[s.default_site])
         except AttributeError:
-            raise settings.ConfigError, "No default site specified"
-        except KeyError:
-            raise settings.ConfigError, "No default site specified"
+            print >> sys.stderr, "No default site specified"
+            print >> sys.stderr, "Check your configuration or specify one."
+            print >> sys.stderr, "Try: 'tracshell -h' for help"
+            sys.exit()
     if hasattr(s, 'editor'):
         shell.start_shell(s)
     else:
