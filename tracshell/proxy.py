@@ -1,6 +1,7 @@
 import os
 import sys
 import xmlrpclib as xmlrpc
+import urllib
 
 from tracshell.backends import trac
 from tracshell.helpers import dict_to_tuple
@@ -30,8 +31,8 @@ class XMLRPCBase(object):
 
         # TODO: add proper SSL handling
         self._url = "%s//%s:%s@%s:%s%s" % (self._protocol,
-                                           self._user,
-                                           self._passwd,
+                                           urllib.quote_plus(self._user),
+                                           urllib.quote_plus(self._passwd),
                                            self._host,
                                            self._port,
                                            self._path)
