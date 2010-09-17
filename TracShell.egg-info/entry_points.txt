@@ -1,3 +1,5 @@
 
       # -*- Entry points: -*-
+      [console_scripts]
+      tracshell = tracshell.core:run
       

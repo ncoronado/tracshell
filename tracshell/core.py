@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 import os
 import sys
 from optparse import OptionParser
@@ -51,6 +49,3 @@ def run():
             print >> sys.stderr, "or set your EDITOR environment variable."
         else:
             shell.start_shell(s)
-
-if __name__ == '__main__':
-    run()

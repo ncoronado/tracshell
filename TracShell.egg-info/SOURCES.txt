@@ -10,6 +10,11 @@ TracShell.egg-info/top_level.txt
 TracShell.egg-info/zip-safe
 bin/tracshell
 tracshell/__init__.py
+tracshell/core.py
+tracshell/handlers.py
+tracshell/helpers.py
+tracshell/proxy.py
 tracshell/settings.py
 tracshell/shell.py
-tracshell/trac.py
+tracshell/backends/__init__.py
+tracshell/backends/trac.py

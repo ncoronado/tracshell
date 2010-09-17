@@ -24,5 +24,7 @@ setup(name='TracShell',
       ],
       entry_points="""
       # -*- Entry points: -*-
+      [console_scripts]
+      tracshell = tracshell.core:run
       """,
       )
