@@ -8,6 +8,8 @@ class Ticket(object):
     A class that represents a Trac ticket
     """
 
+    __SPECIALS = set(("id", "created", "modified"))
+
     def __init__(self, data):
         """
         Arguments:
@@ -23,9 +25,13 @@ class Ticket(object):
         if isinstance(data, list):
             self._original_data = dict_to_tuple(data[3])
             for k, v in data[3].iteritems():
+                if k in self.__SPECIALS:
+                    continue
                 setattr(self, k, v)
         else:
             for k, v in data.iteritems():
+                if k in self.__SPECIALS:
+                    continue
                 setattr(self, k, v)
 
     @property
@@ -50,7 +56,7 @@ class Ticket(object):
     def __repr__(self):
         attrs = [k for k in self.__dict__.keys()
                  if not k.startswith('_') and
-                 k not in ['id', 'created', 'modified']]
+                 k not in self.__SPECIALS]
         vals = list()
         for k in attrs:
             vals.append(getattr(self, k))
