@@ -29,7 +29,7 @@ RESERVED_COMMANDS = set(['query', 'view', 'edit', 'create', 'changelog',
 
 TERM_SIZE = get_termsize(sys.stdout)
 
-def start_shell(settings):
+def start_shell(settings, args=None):
     """
     start_shell is a constructor class for building TracShell instances.
 
@@ -38,6 +38,8 @@ def start_shell(settings):
                   with a 'site' attribute set with the
                   tracshell.settings.Site object set for the site
                   to connect to.
+    - `args`: a list of remaining command-line options that will be
+              executed as commands
     """
     trac = TracProxy(settings.site.user,
                      settings.site.passwd,
@@ -55,7 +57,12 @@ def start_shell(settings):
     for method in shell_methods:
         if method.trac_method not in server_methods:
             delattr(shell, method.__name__)
-    shell.cmdloop()
+    if args:
+        line = shell.precmd(args)
+        stop = shell.onecmd(line)
+        stop = shell.postcmd(stop, line)
+    else:
+        shell.cmdloop()
 
 class TracShell(cmd.Cmd):
     """
@@ -149,7 +156,13 @@ class TracShell(cmd.Cmd):
             print output
     
     def precmd(self, line):
-        parts = line.split(' ')
+        """ handles alias commands for line (which can be a string or
+        list of args) """
+        if isinstance(line, basestring):
+            parts = line.split(' ')
+        else:
+            parts = list(line)
+            line = ' '.join(line)
         cmd = parts[0]
         if cmd in self.aliases:
             cmd = self.aliases[cmd]

@@ -40,7 +40,7 @@ def run():
             print >> sys.stderr, "Try: 'tracshell -h' for help"
             sys.exit()
     if hasattr(s, 'editor'):
-        shell.start_shell(s)
+        shell.start_shell(s, args)
     else:
         try:
             s.editor = os.environ['EDITOR']
@@ -48,4 +48,4 @@ def run():
             print >> sys.stderr, "Please specify an editor in your settings"
             print >> sys.stderr, "or set your EDITOR environment variable."
         else:
-            shell.start_shell(s)
+            shell.start_shell(s, args)
