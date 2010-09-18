@@ -22,16 +22,20 @@ DEFAULT_ALIASES = {
     'c': 'create $0',
     'log': 'changelog $0',
     'Q': 'quit',
+    'EOF': 'quit',
 }
 
 RESERVED_COMMANDS = set(['query', 'view', 'edit', 'create', 'changelog',
     'quit'])
 
-TERM_SIZE = get_termsize(sys.stdout)
+TERM_SIZE = None
+interactive = True
+
 
 def start_shell(settings, args=None):
     """
-    start_shell is a constructor class for building TracShell instances.
+    start_shell is a constructor for building TracShell instances from
+    settings objects.
 
     Arguments:
     - `settings`: a configured tracshell.settings.Settings object
@@ -41,6 +45,11 @@ def start_shell(settings, args=None):
     - `args`: a list of remaining command-line options that will be
               executed as commands
     """
+    if len(args) > 0:
+      interactive = False
+    else:
+      TERM_SIZE = get_termsize(sys.stdout)
+     
     trac = TracProxy(settings.site.user,
                      settings.site.passwd,
                      settings.site.host,
@@ -49,7 +58,7 @@ def start_shell(settings, args=None):
                      settings.site.secure)
     if settings.editor is None or settings.editor == '':
         print >> sys.stderr, "Warning, no editor set."
-    shell = TracShell(trac, settings.editor)
+    shell = TracShell(trac, settings.editor, settings.site)
     server_methods = trac.methods.keys()
     shell_methods = [getattr(shell, x) for x in dir(shell)
         if x.startswith('do_')]
@@ -73,7 +82,7 @@ class TracShell(cmd.Cmd):
         http://trac-hacks.org/wiki/XmlRpcPlugin#DownloadandSource
     """
 
-    def __init__(self, trac_interface, editor):
+    def __init__(self, trac_interface, editor, site_settings):
         """ Initialize the XML-RPC interface to a Trac instance.
 
         Arguments:
@@ -82,6 +91,7 @@ class TracShell(cmd.Cmd):
         """
         self._editor = editor
         self.trac = trac_interface
+        self.site_settings = site_settings
 
         # set up shell options and shortcut keys
         cmd.Cmd.__init__(self)
@@ -92,6 +102,12 @@ class TracShell(cmd.Cmd):
         for k, v in settings.aliases.items():
             if k not in RESERVED_COMMANDS:
                 self.aliases[k] = v
+        # add site-specific aliases here, should over-ride base
+        # aliases
+        if hasattr(self.site_settings, 'aliases'):
+            for k, v in self.site_settings.aliases.items():
+                if k not in RESERVED_COMMANDS:
+                    self.aliases[k] = v
         # built-in shortcuts have priority, so they overwrite aliases
         self.aliases.update(DEFAULT_ALIASES)
     
@@ -150,14 +166,13 @@ class TracShell(cmd.Cmd):
     
     def _print_output(self, output_lines):
         output = '\n'.join(output_lines)
-        if getattr(settings, 'pager', False) and len(output) > TERM_SIZE[0]:
+        if interactive and getattr(settings, 'pager', False) and len(output) > TERM_SIZE[0]:
             pager(output)
         else:
             print output
     
     def precmd(self, line):
-        """ handles alias commands for line (which can be a string or
-        list of args) """
+        """handles alias commands for line (which can be a string or list of args)"""
         if isinstance(line, basestring):
             parts = line.split(' ')
         else:
