@@ -7,7 +7,7 @@ import shlex
 import re
 
 from pydoc import pager
-from tracshell.helpers import get_termsize
+from tracshell.helpers import get_termsize, shell_command
 from tracshell.settings import Settings
 from tracshell.proxy import TracProxy, ValidationError, CallFailed
 
@@ -195,6 +195,7 @@ class TracShell(cmd.Cmd):
         else:
             return line
 
+    @shell_command('ticket.query')
     def do_query(self, query):
         """
         Query for tickets in Trac
@@ -218,8 +219,8 @@ class TracShell(cmd.Cmd):
                 self._print_output(output)
             else:
                 print "Query returned no results"
-    do_query.trac_method = 'ticket.query'
 
+    @shell_command('ticket.get')
     def do_view(self, ticket_id):
         """
         View a specific ticket in trac
@@ -247,8 +248,8 @@ class TracShell(cmd.Cmd):
             self._print_output(output)
         else:
             print "Ticket %s not found" % ticket_id
-    do_view.trac_method = 'ticket.get'
 
+    @shell_command('ticket.changeLog')
     def do_changelog(self, ticket_id):
         """
         View the changes to a ticket
@@ -274,8 +275,8 @@ class TracShell(cmd.Cmd):
                                                                     old,
                                                                     new))
             self._print_output(output)
-    do_changelog.trac_method = 'ticket.changeLog'
 
+    @shell_command('ticket.create')
     def do_create(self, param_str):
         """
         Create and submit a new ticket to Trac instance
@@ -323,8 +324,8 @@ class TracShell(cmd.Cmd):
             print e
             print "Try `help create` for more info"
             pass
-    do_create.trac_method = 'ticket.create'
 
+    @shell_command('ticket.update')
     def do_edit(self, param_str):
         """
         Edit a ticket in Trac
@@ -377,7 +378,6 @@ class TracShell(cmd.Cmd):
         self.trac.save_ticket(ticket, comment)
         print "Updated ticket %s: %s" % (ticket.id, comment)
     
-    do_edit.trac_method = 'ticket.update'
     
     def do_quit(self, _):
         """

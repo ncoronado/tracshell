@@ -8,6 +8,8 @@ TracShell.egg-info/entry_points.txt
 TracShell.egg-info/requires.txt
 TracShell.egg-info/top_level.txt
 TracShell.egg-info/zip-safe
+tests/__init__.py
+tests/test_shell.py
 tracshell/__init__.py
 tracshell/core.py
 tracshell/helpers.py
